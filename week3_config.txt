@@ -1,0 +1,117 @@
+config system global
+    set hostname "FGVMEVBGKKTJLF45"
+    set timezone "US/Pacific"
+end
+
+config system interface
+    edit "port1"
+        set vdom "root"
+        set mode static
+        set ip 192.168.1.10 255.255.255.0
+        set allowaccess ping https ssh http
+        set type physical
+        set alias "WAN"
+        set role wan
+    next
+    edit "port2"
+        set vdom "root"
+        set mode static
+        set ip 192.168.50.1 255.255.255.0
+        set allowaccess ping https ssh http
+        set type physical
+        set alias "LAN"
+        set role lan
+    next
+    edit "port3"
+        set vdom "root"
+        set mode static
+        set ip 192.168.200.10 255.255.255.0
+        set allowaccess ping https ssh
+        set type physical
+        set alias "WAN2"
+        set role wan
+    next
+end
+
+config system dns
+    set primary 96.45.45.45
+    set secondary 96.45.46.46
+end
+
+
+config system virtual-wan-link
+    set status enable
+    config members
+        edit 1
+            set interface "port1"
+            set gateway 192.168.1.1
+            set cost 10
+            set priority 1
+        next
+        edit 2
+            set interface "port3"
+            set gateway 192.168.200.1
+            set cost 20
+            set priority 2
+        next
+    end
+end
+
+config system virtual-wan-link
+    config health-check
+        edit "SLA_ISP"
+            set server "8.8.8.8"
+            set interval 500
+            set failtime 5
+            set recoverytime 5
+            config sla
+                edit 1
+                    set latency 150
+                    set jitter 50
+                    set packetloss 5
+                next
+            end
+            set members 1 2
+        next
+    end
+end
+
+config system virtual-wan-link
+    config service
+        edit 1
+            set name "Failover_Rule"
+            set dst "all"
+            set src "all"
+            set mode sla
+            set sla "SLA_ISP"
+            set priority-members 1 2
+        next
+    end
+end
+
+config router static
+    edit 2
+        set dst 0.0.0.0 0.0.0.0
+        set device "virtual-wan-link"
+    next
+end
+
+config firewall address
+    edit "LAN_NET"
+        set subnet 192.168.50.0 255.255.255.0
+    next
+end
+
+config firewall policy
+    edit 200
+        set name "LAN_to_Internet"
+        set srcintf "port2"
+        set dstintf "virtual-wan-link"
+        set srcaddr "LAN_NET"
+        set dstaddr "all"
+        set action accept
+        set schedule "always"
+        set service "ALL"
+        set nat enable
+    next
+end
